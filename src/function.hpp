@@ -86,7 +86,7 @@ namespace broma {
 			f.binds.win = normalize_platform_number(f.binds.win, has_inline);
 
 			f.inner = scratch->wip_fn_body;
-			f.source = input.input().source();
+			f.source = scratch->canonicalizePath(input.input().source());
 			f.line = input.position().line;
 
 			// clear state (there's probably a better way to do this too)
@@ -162,7 +162,10 @@ namespace broma {
 			for (auto& f : scratch->wip_class.fields) {
 				if (auto fn = f.get_fn()) {
 					if (*fn == scratch->wip_mem_fn_proto) {
-						scratch->errors.push_back(parse_error("Function duplicate!", input.position()));
+						scratch->error(
+							"duplicate class method declaration for " + scratch->wip_mem_fn_proto.name + " (previous declaration at " + scratch->wip_class.source + ":" + std::to_string(f.line) + ")",
+							input.position()
+						);
 					}
 				}
 			}

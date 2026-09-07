@@ -2,7 +2,9 @@
 
 #include <tao/pegtl.hpp>
 #include <ast.hpp>
-#include <unordered_set>
+#include <unordered_map>
+
+#include "paths.hpp"
 
 namespace broma {
 	/// @brief Base class for all Broma actions.
@@ -30,9 +32,38 @@ namespace broma {
 		bool wip_has_explicit_inline;
 		std::optional<Platform> wip_platform_block;
 		Platform wip_import_platform = Platform::All;
+		size_t next_field_id = 0;
 
 		std::vector<tao::pegtl::parse_error> errors;
+		std::vector<std::string> post_errors; // post_process errors
 		std::unordered_set<std::string> included_files;
 		const std::filesystem::path include_path;
+		std::unordered_map<std::string, std::string> source_cache;
+
+		/// @brief Centralized function with caching to handle file path strings.
+		inline std::string const& canonicalizePath(std::filesystem::path const& path) {
+			auto raw = paths::pathToString(path);
+			auto [it, inserted] = source_cache.try_emplace(raw);
+			if (inserted)
+				it->second = paths::canonicalize(path);
+			return it->second;
+		}
+
+		/// @brief Record a non-fatal error without position info.
+		void error(std::string msg) {
+			post_errors.push_back(std::move(msg));
+		}
+
+		/// @brief Record a non-fatal error during parsing.
+		template <typename Pos>
+		void error(std::string msg, Pos&& pos) {
+			errors.push_back(tao::pegtl::parse_error(std::move(msg), std::forward<Pos>(pos)));
+		}
+
+		/// @brief Abort parsing immediately with a fatal error.
+		template <typename Pos>
+		[[noreturn]] void fatal(std::string msg, Pos&& pos) {
+			throw tao::pegtl::parse_error(std::move(msg), std::forward<Pos>(pos));
+		}
 	};
 } // namespace broma
